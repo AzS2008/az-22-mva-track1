@@ -32,7 +32,7 @@ Full reasoning and limitations are in the accompanying methods report
 
 ```bash
 pip install -r requirements.txt
-huggingface-cli login   # requires access to the gated SageBio/mva-hackathon-2026-data dataset
+huggingface-cli login   
 ```
 
 ## Running the pipeline
