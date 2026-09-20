@@ -1,0 +1,8 @@
+data/
+outputs/*.csv
+outputs/*.vcf
+!outputs/predictions.csv
+__pycache__/
+*.pyc
+.venv/
+venv/
