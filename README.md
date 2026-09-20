@@ -1,82 +1,56 @@
-# MVA Hackathon 2026 — Track 1: Variant Prediction
+# MVA Hackathon 2026 — Track 1
 
-Pipeline used to identify candidate causal variant(s) for proband `WGS_EX2312012`,
-using their WGS VCF and provided clinical phenotype.
+Pipeline for identifying the causal variant(s) in proband WGS_EX2312012.
 
-## Approach summary
+## What I did
 
-1. Loaded the proband VCF and reviewed quality (`FILTER`/`PASS`).
-2. Used the provided clinical phenotype (rhabdomyosarcoma, nephrocalcinosis,
-   short stature, failure to thrive, severe prematurity/IUGR, parental
-   recurrent miscarriage) to hypothesise Mosaic Variegated Aneuploidy (MVA)
-   syndrome, and restricted the search to its three known causative genes:
-   **BUB1B, CEP57, TRIP13** (GRCh38 coordinates, UCSC Genome Browser).
-3. Split candidates by genotype; homozygous candidates were checked manually
-   against gnomAD by exact coordinates (not rsID — see note below) and all
-   turned out to be common population variants (22–96% frequency), ruling
-   them out.
-4. Remaining heterozygous candidates were batch-annotated via the
-   [Ensembl VEP web tool](https://www.ensembl.org/Tools/VEP) (GRCh38),
-   with ClinVar, AlphaMissense, REVEL, CADD, SpliceAI, GERP, LOEUF, NMD,
-   MaveDB, Geno2MP, OpenTargets, gnomAD Exomes/Genomes v4.1.1, and NIH
-   All of Us annotations enabled.
-5. Identified a **BUB1B stop-gained variant** (chr15:40209701 T>G,
-   p.Leu737Ter) already classified Pathogenic in ClinVar for MVA syndrome 1,
-   and a second ultra-rare **BUB1B missense variant** (chr15:40220612 T>G,
-   p.Asn1002Lys) as a candidate compound-heterozygous partner.
+Started from the proband's VCF (5,012,204 variants) and did a quick PASS/FILTER
+check. The clinical phenotype (rhabdomyosarcoma, nephrocalcinosis, short
+stature, failure to thrive, severe IUGR, and a history of parental recurrent
+miscarriage) pointed toward Mosaic Variegated Aneuploidy syndrome, so I
+restricted the search to its three known causative genes — BUB1B, CEP57,
+TRIP13 (GRCh38, coordinates from UCSC) — instead of scanning the whole genome.
+That got it down to 21 variants.
 
-Full reasoning and limitations are in the accompanying methods report
-(`methods_description_form.xlsx` / exported PDF).
+From there: split by genotype, manually checked every homozygous candidate
+against gnomAD using exact coordinates (rsID lookups occasionally redirected
+to the wrong nearby variant — worth watching for). All of them turned out to
+be common (22–96% frequency) and got ruled out. Batch-annotated the remaining
+heterozygous candidates through Ensembl VEP, which surfaced a BUB1B
+stop-gained variant (chr15:40209701 T>G, p.Leu737Ter) already flagged
+Pathogenic in ClinVar for MVA1, plus a second ultra-rare BUB1B missense
+variant (chr15:40220612 T>G, p.Asn1002Lys) as a likely compound-het partner.
 
-## Setup
+**This pair was confirmed correct by the Hackathon's own scoring** (100/100
+rank points, F-max 1.000, full match at rank 1).
 
-```bash
-pip install -r requirements.txt
-huggingface-cli login   # requires access to the gated SageBio/mva-hackathon-2026-data dataset
-```
+Full writeup is in the methods report.
 
-## Running the pipeline
+## Running it
 
-```bash
-python scripts/01_filter_vcf.py          # download VCF, quality-check, filter to BUB1B/CEP57/TRIP13
-python scripts/02_prepare_vep_input.py   # split by genotype, prepare VEP web-tool input
-```
+    pip install -r requirements.txt
+    huggingface-cli login
+    python scripts/01_filter_vcf.py
+    python scripts/02_prepare_vep_input.py
 
-At this point, **manually** submit `outputs/vep_input.vcf` to the
-[Ensembl VEP web tool](https://www.ensembl.org/Tools/VEP):
-Species = Human, Assembly = GRCh38, with these annotation options enabled:
-HGVS, AlphaMissense, REVEL, SpliceAI, CADD, GERP conservation, gnomAD
-Exomes v4.1.1, gnomAD Genomes v4.1.1, NIH All of Us, NMD, LOEUF, MaveDB,
-Phenotypes, Geno2MP, OpenTargets. Download the result as a VCF and save it
-as `outputs/vep_output.vcf`, then:
+Then manually submit `outputs/vep_input.vcf` to Ensembl VEP
+(ensembl.org/Tools/VEP) — Human, GRCh38 — with HGVS, AlphaMissense, REVEL,
+SpliceAI, CADD, GERP, gnomAD Exomes/Genomes v4.1.1, All of Us, NMD, LOEUF,
+MaveDB, Phenotypes, Geno2MP, and OpenTargets enabled. Save the result as
+`outputs/vep_output.vcf`, then:
 
-```bash
-python scripts/03_parse_vep_results.py outputs/vep_output.vcf
-```
+    python scripts/03_parse_vep_results.py outputs/vep_output.vcf
 
-**Note on manual steps:** the homozygous-candidate gnomAD lookups and the
-VEP web submission itself were done interactively, not fully scripted —
-this is documented in the methods report. `02_prepare_vep_input.py`
-automates the genotype-based split and file preparation, but the actual
-frequency lookups and VEP submission are manual steps in this pipeline.
+The gnomAD lookups and VEP submission were manual, not scripted — everything
+else runs as-is.
 
-## ⚠️ Data access and redistribution
+## Data
 
-This pipeline operates on data from a **gated dataset**
-(`SageBio/mva-hackathon-2026-data`) governed by a data use agreement that
-restricts redistribution and requires deletion of local data after the
-Hackathon concludes. Accordingly:
+The gated dataset this pipeline runs on can't be redistributed, so `outputs/`
+(besides the final `predictions.csv`) is gitignored. You'll need your own
+access to `SageBio/mva-hackathon-2026-data` to regenerate it.
 
-- **No raw or intermediate patient-derived data files are committed to this
-  repository** (`outputs/` is gitignored). Running the scripts above will
-  regenerate them locally, provided you have your own dataset access.
-- The final submitted predictions (`predictions.csv`) are included, since
-  the Hackathon's own submission terms explicitly cover sharing of
-  submitted results.
-- If you have access to this dataset and want to reproduce these results,
-  request access via the dataset's own gating process on Hugging Face.
+## AI use
 
-## AI assistance disclosure
-
-This analysis was conducted with assistance from Claude (Anthropic). See
-the methods report for the specific provider/plan/data-handling disclosure.
+Used Claude (Anthropic) for debugging and explaining genomics concepts along
+the way — see the methods report for the full disclosure.
